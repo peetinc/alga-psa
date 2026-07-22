@@ -69,9 +69,9 @@ WORKDIR /app
 RUN npx nx build-deps server
 ENV USE_PREBUILT="true"
 
-# Set edition to community for proper module resolution
-ENV EDITION="ce"
-ENV NEXT_PUBLIC_EDITION="community"
+# Edition: enterprise (this fork deploys the EE build)
+ENV EDITION="enterprise"
+ENV NEXT_PUBLIC_EDITION="enterprise"
 
 WORKDIR /app/server
 RUN --mount=type=cache,target=/app/server/.next/cache \
