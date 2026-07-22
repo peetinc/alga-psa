@@ -29,6 +29,8 @@ FROM deps AS builder
 # Fallback secret values ensure edge-auth guards pass during build; real values come from runtime secrets.
 ARG NEXTAUTH_SECRET_BUILD="dev-placeholder-nextauth-secret-32"
 ARG NEXT_BUILD_MAX_OLD_SPACE_SIZE="12288"
+# Enterprise build: keep the real ee/server tree instead of stripping it for CE.
+ARG INCLUDE_EE="true"
 # Keep every Node-based build step in this stage on the same heap limit. The
 # set-image-tag.sh helper passes NEXT_BUILD_MAX_OLD_SPACE_SIZE as a build arg.
 ENV NODE_OPTIONS="--max-old-space-size=${NEXT_BUILD_MAX_OLD_SPACE_SIZE}"
@@ -38,29 +40,29 @@ WORKDIR /app
 
 COPY . .
 
-# Remove only the EE server tree for CE builds.
+# CE builds strip the EE server tree and swap in stubs; EE builds keep it.
 # The workflows workspace now lives under ee/packages/workflows and must remain
 # present because node_modules/@alga-psa/workflows is a workspace symlink.
-RUN rm -rf /app/ee/server
+RUN test "$INCLUDE_EE" = "true" || rm -rf /app/ee/server
 
 # Copy CE stubs from server/src/empty to ee/server/src for @ee alias resolution
 # This ensures both TypeScript and webpack can resolve @ee imports during CE builds
-RUN mkdir -p /app/ee/server/src && \
-    cp -r /app/server/src/empty/. /app/ee/server/src/
+RUN test "$INCLUDE_EE" = "true" || ( mkdir -p /app/ee/server/src && \
+    cp -r /app/server/src/empty/. /app/ee/server/src/ )
 
 # Create a dummy file for the relative import that webpack tries to resolve
-RUN mkdir -p /app/ee/server/src/lib/extensions && \
-    echo "export const initializeExtensions = async () => { console.log('CE build - extensions not available'); };" > /app/ee/server/src/lib/extensions/initialize.js
+RUN test "$INCLUDE_EE" = "true" || ( mkdir -p /app/ee/server/src/lib/extensions && \
+    echo "export const initializeExtensions = async () => { console.log('CE build - extensions not available'); };" > /app/ee/server/src/lib/extensions/initialize.js )
 
 # Create minimal stubs for packages that use relative paths (not @ee alias)
 # packages/product-chat/ee/entry.tsx uses ../../../ee/server/src/services/*
-RUN mkdir -p /app/ee/server/src/services && \
+RUN test "$INCLUDE_EE" = "true" || ( mkdir -p /app/ee/server/src/services && \
     printf "export class ChatStreamService {\n  static async handleChatStream(req) {\n    return new Response(JSON.stringify({ error: 'Chat streaming is only available in Enterprise Edition' }), {\n      status: 404,\n      headers: { 'Content-Type': 'application/json' },\n    });\n  }\n  static async handleTitleStream(req) {\n    return new Response(JSON.stringify({ error: 'Chat streaming is only available in Enterprise Edition' }), {\n      status: 404,\n      headers: { 'Content-Type': 'application/json' },\n    });\n  }\n}\n" > /app/ee/server/src/services/chatStreamService.js && \
     printf "export class TemporaryApiKeyService {\n  static async cleanupExpiredAiKeys() {\n    return 0;\n  }\n}\n" > /app/ee/server/src/services/temporaryApiKeyService.js && \
-    printf "export class ChatCompletionsService {\n  static async handleRequest(req) {\n    return new Response(JSON.stringify({ error: 'Chat completions are only available in Enterprise Edition' }), {\n      status: 404,\n      headers: { 'Content-Type': 'application/json' },\n    });\n  }\n  static async handleExecute(req) {\n    return new Response(JSON.stringify({ error: 'Chat completions are only available in Enterprise Edition' }), {\n      status: 404,\n      headers: { 'Content-Type': 'application/json' },\n    });\n  }\n}\n" > /app/ee/server/src/services/chatCompletionsService.js
+    printf "export class ChatCompletionsService {\n  static async handleRequest(req) {\n    return new Response(JSON.stringify({ error: 'Chat completions are only available in Enterprise Edition' }), {\n      status: 404,\n      headers: { 'Content-Type': 'application/json' },\n    });\n  }\n  static async handleExecute(req) {\n    return new Response(JSON.stringify({ error: 'Chat completions are only available in Enterprise Edition' }), {\n      status: 404,\n      headers: { 'Content-Type': 'application/json' },\n    });\n  }\n}\n" > /app/ee/server/src/services/chatCompletionsService.js )
 
-# Remove EE-specific scripts that shouldn't be in CE build
-RUN rm -f /app/server/src/scripts/check-extension.ts
+# Remove EE-specific scripts that shouldn't be in CE build (keep them for EE)
+RUN test "$INCLUDE_EE" = "true" || rm -f /app/server/src/scripts/check-extension.ts
 
 RUN npm install --include=optional
 
