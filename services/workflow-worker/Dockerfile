@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Install global TypeScript and build tools
 RUN npm install -g typescript @types/node tsc-alias

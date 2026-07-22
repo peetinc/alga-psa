@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Start with a base image and install system dependencies
 # Pinned to Node 24 because the monorepo enforces ">=20 <25" in package.json engines.
 FROM node:24-alpine AS base
@@ -73,7 +74,8 @@ ENV EDITION="ce"
 ENV NEXT_PUBLIC_EDITION="community"
 
 WORKDIR /app/server
-RUN NEXTAUTH_SECRET="${NEXTAUTH_SECRET_BUILD}" \
+RUN --mount=type=cache,target=/app/server/.next/cache \
+    NEXTAUTH_SECRET="${NEXTAUTH_SECRET_BUILD}" \
     AUTH_SECRET="${NEXTAUTH_SECRET_BUILD}" \
     NODE_ENV=production \
     npm exec -- next build --webpack
