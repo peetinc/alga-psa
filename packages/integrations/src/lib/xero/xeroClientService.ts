@@ -16,11 +16,19 @@ const XERO_CREDENTIALS_SECRET = 'xero_credentials';
 const XERO_CLIENT_ID_SECRET = 'xero_client_id';
 const XERO_CLIENT_SECRET_SECRET = 'xero_client_secret';
 const ACCESS_TOKEN_BUFFER_SECONDS = 300;
+// Granular Xero scopes required for two-way accounting sync. `offline_access`
+// yields a refresh token (ongoing sync); the granular accounting.* scopes cover
+// contacts, invoices, bank transactions and payments read/write. The legacy
+// broad `accounting.transactions` scope does not grant payments and blocks the
+// invoice+payment two-way sync, so it is replaced by the granular set here.
+// Overridable at runtime via XERO_OAUTH_SCOPES (see resolveXeroScopes below).
 const DEFAULT_XERO_SCOPES = [
   'offline_access',
   'accounting.settings',
-  'accounting.transactions',
-  'accounting.contacts'
+  'accounting.contacts',
+  'accounting.invoices',
+  'accounting.banktransactions',
+  'accounting.payments'
 ];
 
 export const XERO_TOKEN_URL = XERO_TOKEN_ENDPOINT;
